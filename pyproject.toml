@@ -1,0 +1,40 @@
+# tells pip how to build the package before it can install it
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# metadata and runtime dependencies-what a user needs to run the Real-time network security investigation
+[project]
+name = "net-sec-investigation"
+version = "0.1.0"
+description = "Real-time network security investigation and attack graph platform"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "scapy>=2.5",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+netsec = "net_sec_investigation.cli:main"    # this means import main from net_sec_investigation/cli.py
+
+# setuptools look in the repo root
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+# I=import, E/f=pycodestyle and pyflakes, B=flake8-bugbear that ctaches bug patterns, UP=flags outdated syntax for Python version
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
