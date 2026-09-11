@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-
+from pathlib import Path
 from dotenv import load_dotenv
 
 
@@ -40,7 +40,7 @@ def _int(key, default) -> int:
             f"Environment variable {key} must be an integer, got: {value!r}"
         ) from None
         
-def load_settings(dotenv_path: str | None = None) -> Settings:
+def load_settings(dotenv_path: str | Path | None = None) -> Settings:
     load_dotenv(dotenv_path)
     
     return Settings(
