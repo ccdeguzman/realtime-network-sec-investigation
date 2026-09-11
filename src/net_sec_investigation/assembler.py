@@ -7,7 +7,7 @@ flow each packet belongs to, and (in later sessions) when a flow ends.
 
 from __future__ import annotations
 
-from net_sec_investigation.models import Flow, PacketInfo
+from net_sec_investigation.models import EndReason, Flow, PacketInfo, TCPFlag
 
 Endpoint = tuple[str, int]  # (ip, port)
 FlowKey = tuple[str, Endpoint, Endpoint]  # (protocol, first endpoint, second endpoint)
@@ -25,7 +25,7 @@ def canonical_key(pkt: PacketInfo) -> FlowKey:
     src: Endpoint = (pkt.src_ip, pkt.src_port)
     dst: Endpoint = (pkt.dst_ip, pkt.dst_port)
 
-    # When 10.0.0.5:51000 -> 1.2.3.4:443 is reversed 1.2.3.4:443 -> 10.0.0.5:51000, 
+    # When 10.0.0.5:51000 -> 1.2.3.4:443 is reversed 1.2.3.4:443 -> 10.0.0.5:51000,
     # min and max put them in the same order making Packet 1 key == Packet 2 key
     first = min(src, dst)
     second = max(src, dst)
@@ -50,7 +50,7 @@ class FlowAssembler:
 
         key = canonical_key(pkt)
 
-        # If self._active has no flow for this key, start one with Flow.from_first_packet(pkt) 
+        # If self._active has no flow for this key, start one with Flow.from_first_packet(pkt)
         # and store it under the key.
         # Otherwise, add the packet to the flow that's already there.
         if key not in self._active:
@@ -60,10 +60,14 @@ class FlowAssembler:
             flow = self._active[key]
             flow.add_packet(pkt)
 
-        return finished
+        reason = tcp_end_reason(flow, pkt)
 
-        # Session 2 goes here: if this packet ended a TCP conversation,
-        # close the flow, remove it from self._active, add it to `finished`.
+        if reason is not None:
+            flow.close(reason)
+            del self._active[key]  # only OPEN flows stay in the dictionary
+            finished.append(flow)
+
+        return finished
 
     def flush(self) -> list[Flow]:
         """
@@ -79,3 +83,24 @@ class FlowAssembler:
     def _expire_idle(self, now: float) -> list[Flow]:
         """Session 3: close and return flows idle longer than idle_timeout."""
         return []
+
+
+def tcp_end_reason(flow: Flow, pkt: PacketInfo) -> EndReason | None:
+    """
+    Decide whether `pkt` ended the TCP conversation in `flow`.
+
+    Called AFTER pkt has been added to flow, so flow's flags include pkt's.
+    Returns None if the flow should stay open.
+    """
+    if pkt.protocol != "TCP":
+        return None  # None (UDP has no teardown)
+    if TCPFlag.RST in pkt.tcp_flags:
+        return EndReason.RST
+
+    # Both sides said "done sending". Wait for the packet AFTER the second
+    # FIN (the final ACK) so that ACK joins this flow instead of starting a
+    # ghost one-packet flow of its own.
+    both_finned = TCPFlag.FIN in flow.orig_flags and TCPFlag.FIN in flow.resp_flags
+    if both_finned and TCPFlag.FIN not in pkt.tcp_flags:
+        return EndReason.FIN
+    return None

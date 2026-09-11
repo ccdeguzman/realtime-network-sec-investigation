@@ -135,7 +135,7 @@ class Flow:
         else:
             raise FlowMismatchError(f"{src}->{dst} is not part of {orig}<->{resp}")
 
-        # max() so an out-of-order packet can't pull last_seen 
+        # max() so an out-of-order packet can't pull last_seen
         # backwards and make duration shrink or go negative.
         self.last_seen = max(self.last_seen, pkt.timestamp)
 
