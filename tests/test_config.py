@@ -1,4 +1,3 @@
-
 import pytest
 
 from net_sec_investigation.config import ConfigError, load_settings
@@ -15,7 +14,7 @@ def _set_required(monkeypatch):
     monkeypatch.setenv("NEO4J_PASSWORD", "pw")
 
 
-def test_defaults_apply_when_optional_vars_unset(monkeypatch):
+def test_defaults_apply_when_optional_vars_unset(monkeypatch, no_env_file):
     for key in ("POSTGRES_HOST", "POSTGRES_PORT", "LOG_LEVEL"):
         monkeypatch.delenv(key, raising=False)
     _set_required(monkeypatch)
@@ -25,8 +24,9 @@ def test_defaults_apply_when_optional_vars_unset(monkeypatch):
     assert settings.postgres_host == "localhost"
     assert settings.postgres_port == 5432
     assert settings.log_level == "INFO"
-    
-def test_missing_password_raises(monkeypatch):
+
+
+def test_missing_password_raises(monkeypatch, no_env_file):
     monkeypatch.setenv("NEO4J_PASSWORD", "pw")
     monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
 
@@ -34,7 +34,7 @@ def test_missing_password_raises(monkeypatch):
         load_settings(no_env_file)
 
 
-def test_port_is_parsed_to_int(monkeypatch):
+def test_port_is_parsed_to_int(monkeypatch, no_env_file):
     _set_required(monkeypatch)
     monkeypatch.setenv("POSTGRES_PORT", "5433")
 
@@ -44,7 +44,7 @@ def test_port_is_parsed_to_int(monkeypatch):
     assert isinstance(settings.postgres_port, int)
 
 
-def test_invalid_port_raises(monkeypatch):
+def test_invalid_port_raises(monkeypatch, no_env_file):
     _set_required(monkeypatch)
     monkeypatch.setenv("POSTGRES_PORT", "banana")
 
@@ -52,13 +52,14 @@ def test_invalid_port_raises(monkeypatch):
         load_settings(no_env_file)
 
 
-def test_invalid_log_level_raises(monkeypatch):
+def test_invalid_log_level_raises(monkeypatch, no_env_file):
     _set_required(monkeypatch)
     monkeypatch.setenv("LOG_LEVEL", "BANANA")
 
     with pytest.raises(ConfigError):
         load_settings(no_env_file)
-        
+
+
 def test_values_are_read_from_given_env_file(monkeypatch, tmp_path):
     _set_required(monkeypatch)
     # load_dotenv writes into os.environ, but monkeypatch only undoes its OWN
